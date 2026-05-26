@@ -18,6 +18,16 @@ L'embed contient :
 
 ## Comment ça marche ?
 
+## Structure du projet
+
+```txt
+discord-dheliat/
+│── script.sh        # Script principal météo
+│── install.sh       # Script d'installation
+│── README.md        # Documentation
+│── LICENSE          # Licence du projet
+```
+
 Le projet contient deux scripts :
 
 ### [`script.sh`](script.sh)
@@ -38,16 +48,6 @@ Le script d'installation. Il :
 1. Copie `script.sh` dans `/usr/local/bin/discord-dheliat/` (avec `sudo` si nécessaire).
 2. Ajoute une ligne dans la **crontab** de l'utilisateur pour exécuter le script chaque jour à 7h00.
 3. Redirige les logs d'exécution vers `/tmp/meteo.log` pour faciliter le débogage.
-
-## Structure du projet
-
-```txt
-discord-dheliat/
-│── script.sh        # Script principal météo
-│── install.sh       # Script d'installation
-│── README.md        # Documentation
-│── LICENSE          # Licence du projet
-```
 
 ## Installation
 
