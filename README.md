@@ -16,8 +16,6 @@ L'embed contient :
 - ☀️ L'indice UV
 - 👁️ La visibilité
 
-## Comment ça marche ?
-
 ## Structure du projet
 
 ```txt
@@ -27,6 +25,8 @@ discord-dheliat/
 │── README.md        # Documentation
 │── LICENSE          # Licence du projet
 ```
+
+## Comment ça marche ?
 
 Le projet contient deux scripts :
 
