@@ -9,7 +9,7 @@ if [[ -z "$DISCORD_WEBHOOK" ]]; then
 fi
 
 CITY="Lille"
-LOCATION="ca4f71b6ddcd51fb2dbeef857f33cda0ecc46ad909fe2427b0c3a07b7dbfc918"
+LOCATION="db749df24acdde958fc5a2c673b6ba1017b235853163a3c928af67f08127401e"
 BASE_URL="https://weather.com/fr-FR/weather/today/l"
 LYNX_OPTS="-dump -nolist -width=160 -accept_all_cookies"
 
@@ -42,6 +42,17 @@ get_temp() {
 get_field() {
     local raw="$1" label="$2"
     echo "$raw" | after_label "$label" | trim
+}
+
+get_pollen() {
+    local line
+    line=$(echo "$1" | after_label "pollen")
+    if   echo "$line" | grep -qi "très élevé"; then echo "🔴 Très élevé"
+    elif echo "$line" | grep -qi "élevé";       then echo "🟠 Élevé"
+    elif echo "$line" | grep -qi "faible";     then echo "🟡 Faible"
+    elif echo "$line" | grep -qi "pas";      then echo "🟢 Aucun"
+    else echo "N/A"
+    fi
 }
 
 get_condition() {
@@ -110,6 +121,7 @@ humidite=$(echo "$raw" | after_label "Humidité$")
 vent=$(get_field "$raw" "Vent$")
 uv=$(get_field "$raw" "Indice UV$")
 visibilite=$(echo "$raw" | after_label "Visibilité$")
+pollen=$(get_pollen "$raw")
 
 condition=$(get_condition "$raw")
 color=$(get_color "$condition")
@@ -135,10 +147,11 @@ embed = {
         ),
         "color": $color,
         "fields": [
-            {"name": "💧  Humidité",   "value": "$(fmt_val  "$humidite")", "inline": True},
-            {"name": "💨  Vent",       "value": "$(fmt_val  "$vent")",     "inline": True},
-            {"name": "☀️  Indice UV",  "value": "$(fmt_val  "$uv")",       "inline": True},
-            {"name": "👁️  Visibilité", "value": "$(fmt_val  "$visibilite")","inline": True},
+            {"name": "💧  Humidité",   "value": "$(fmt_val  "$humidite")",   "inline": True},
+            {"name": "💨  Vent",       "value": "$(fmt_val  "$vent")",       "inline": True},
+            {"name": "☀️  Indice UV",  "value": "$(fmt_val  "$uv")",         "inline": True},
+            {"name": "👁️  Visibilité", "value": "$(fmt_val  "$visibilite")", "inline": True},
+            {"name": "🌿  Pollen",     "value": "$(json_esc "$pollen")",     "inline": True},
         ],
         "footer": {
             "text": "Source : weather.com"
