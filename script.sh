@@ -9,21 +9,22 @@ if [[ -z "$DISCORD_WEBHOOK" ]]; then
 fi
 
 CITY="Lille"
-LOCATION="db749df24acdde958fc5a2c673b6ba1017b235853163a3c928af67f08127401e"
+LOCATION="ca4f71b6ddcd51fb2dbeef857f33cda0ecc46ad909fe2427b0c3a07b7dbfc918"
 BASE_URL="https://weather.com/fr-FR/weather/today/l"
 LYNX_OPTS="-dump -nolist -width=160 -accept_all_cookies"
 
 # ── Helpers ────────────────────────────────────────────────────────────────
 
 after_label() {
-    LC_ALL=C awk -v pat="$1" '
-        $0 ~ pat {
-            while ((getline line) > 0) {
-                sub(/^[[:space:]]+/, "", line)
-                if (line != "" && line !~ /^\(BUTTON\)$/) { print line; exit }
-            }
-        }
-    '
+    LC_ALL=C sed -n "/$1/{
+        :next
+        n
+        s/^[[:space:]]*//
+        /^$/b next
+        /^(BUTTON)$/b next
+        p
+        q
+    }"
 }
 
 extract_int() { grep -oP -- '-?\d+' | head -1; }
@@ -43,10 +44,52 @@ get_field() {
     echo "$raw" | after_label "$label" | trim
 }
 
+get_condition() {
+    LC_ALL=C sed -n '/partir de/{
+        n
+        :next
+        n
+        s/^[[:space:]]*//
+        /^$/b next
+        /^(BUTTON)$/b next
+        p
+        q
+    }' <<< "$1"
+}
+
+get_color() {
+    local cond="${1,,}"  # lowercase
+    if   echo "$cond" | grep -qiE "neige"; then
+        echo "16777215"
+    elif echo "$cond" | grep -qiE "pluie|averses"; then
+        echo "3447003"
+    elif echo "$cond" | grep -qiE "ensoleillé|beau|dégagé"; then
+        echo "16766720"
+    else
+        echo "5793266"
+    fi
+}
+
+get_image_url() {
+    local cond="${1,,}"
+    if   echo "$cond" | grep -qiE "neige"; then
+        echo "https://openweathermap.org/img/wn/13d@2x.png"
+    elif echo "$cond" | grep -qiE "orage|tonnerre"; then
+        echo "https://openweathermap.org/img/wn/11d@2x.png"
+    elif echo "$cond" | grep -qiE "pluie|averses"; then
+        echo "https://openweathermap.org/img/wn/10d@2x.png"
+    elif echo "$cond" | grep -qiE "brouillard|brume"; then
+        echo "https://openweathermap.org/img/wn/50d@2x.png"
+    elif echo "$cond" | grep -qiE "ensoleillé|beau|dégagé"; then
+        echo "https://openweathermap.org/img/wn/01d@2x.png"
+    else
+        echo "https://openweathermap.org/img/wn/03d@2x.png"
+    fi
+}
+
 fmt_temp() { [[ -n "$1" ]] && echo "${1}°C" || echo "N/A"; }
 fmt_val()  { [[ -n "$1" ]] && echo "$1"     || echo "N/A"; }
 
-# Échappe les caractères spéciaux JSON
 json_esc() { printf '%s' "$1" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read())[1:-1])'; }
 
 # ── Fetch & parse ──────────────────────────────────────────────────────────
@@ -59,16 +102,18 @@ if [[ -z "$raw" ]]; then
     exit 1
 fi
 
-matin=$(    get_temp "$raw" "^[[:space:]]*Matin$")
-apm=$(      get_temp "$raw" "Apr.s-midi")
-soir=$(     get_temp "$raw" "^[[:space:]]*Soir$")
-nuit=$(     get_temp "$raw" "^[[:space:]]*Nuit$")
-ressenti=$( echo "$raw" | LC_ALL=C grep -ia "ressentie" | grep -aoP -- '-?\d+' | head -1)
-humidite=$( echo "$raw" | after_label "Humidit")
-vent=$(     get_field "$raw" "^[[:space:]]*Vent$")
-uv=$(       get_field "$raw" "Indice UV")
-visibilite=$(echo "$raw" | after_label "Visibilit")
+matin=$(get_temp "$raw" "Matin$")
+apm=$(get_temp "$raw" "Après-midi$")
+soir=$(get_temp "$raw" "Soir$")
+nuit=$(get_temp "$raw" "Nuit$")
+humidite=$(echo "$raw" | after_label "Humidité$")
+vent=$(get_field "$raw" "Vent$")
+uv=$(get_field "$raw" "Indice UV$")
+visibilite=$(echo "$raw" | after_label "Visibilité$")
 
+condition=$(get_condition "$raw")
+color=$(get_color "$condition")
+image_url=$(get_image_url "$condition")
 date_fr=$(LC_ALL=fr_FR.UTF-8 date '+%A %d %B %Y')
 
 # ── Build Discord embed JSON ───────────────────────────────────────────────
@@ -78,34 +123,27 @@ import json
 
 embed = {
     "embeds": [{
-        "title": "🌤️  Météo Lille — $(json_esc "$date_fr")",
-        "color": 0x5865F2,
+        "title": "🌤️  Météo — Lille",
+        "thumbnail": {"url": "$(json_esc "$image_url")"},
+        "description": (
+            "📅  **$(json_esc "$date_fr")**\n"
+            "\u200b\n"
+            "🌅  **Matin**            $(fmt_temp "$matin")\u2003\u2003\u2003"
+            "☀️  **Après\u2011midi**  $(fmt_temp "$apm")\n"
+            "🌆  **Soir**             $(fmt_temp "$soir")\u2003\u2003\u2003"
+            "🌙  **Nuit**             $(fmt_temp "$nuit")\n"
+        ),
+        "color": $color,
         "fields": [
-            {
-                "name": "🌡️  Températures",
-                "value": (
-                    "🌅 Matin       **$(fmt_temp "$matin")**\n"
-                    "☀️  Après-midi  **$(fmt_temp "$apm")**\n"
-                    "🌆 Soir        **$(fmt_temp "$soir")**\n"
-                    "🌙 Nuit        **$(fmt_temp "$nuit")**"
-                ),
-                "inline": False
-            },
-            {
-                "name": "🌬️  Conditions",
-                "value": (
-                    "🤔 Ressenti    **$(fmt_temp "$ressenti")**\n"
-                    "💧 Humidité    **$(fmt_val  "$humidite")**\n"
-                    "💨 Vent        **$(fmt_val  "$vent")**\n"
-                    "☀️  Indice UV   **$(fmt_val  "$uv")**\n"
-                    "👁️ Visibilité  **$(fmt_val  "$visibilite")**"
-                ),
-                "inline": False
-            }
+            {"name": "💧  Humidité",   "value": "$(fmt_val  "$humidite")", "inline": True},
+            {"name": "💨  Vent",       "value": "$(fmt_val  "$vent")",     "inline": True},
+            {"name": "☀️  Indice UV",  "value": "$(fmt_val  "$uv")",       "inline": True},
+            {"name": "👁️  Visibilité", "value": "$(fmt_val  "$visibilite")","inline": True},
         ],
         "footer": {
-            "text": "Source : weather.com  •  $(date '+%H:%M')"
-        }
+            "text": "Source : weather.com"
+        },
+        "timestamp": "$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
     }]
 }
 print(json.dumps(embed))
