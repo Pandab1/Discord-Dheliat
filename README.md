@@ -1,6 +1,6 @@
 # Discord Dhéliat
 
-Un bot météo écrit en Bash qui publie chaque matin la météo de **Lille** dans un salon Discord, via un webhook.
+Un script météo écrit en Bash qui publie chaque matin la météo de **Lille** dans un salon Discord, via un webhook.
 
 # Présentation du projet 
 
@@ -15,6 +15,7 @@ L'embed contient :
 - 💨 Le vent
 - ☀️ L'indice UV
 - 👁️ La visibilité
+- 🌿 Le pollen
 
 ## Structure du projet
 
@@ -32,9 +33,9 @@ Le projet contient deux scripts :
 
 ### [`script.sh`](script.sh)
 
-Le script principal. Il :
+Le script principal:
 
-1. Récupération des données météo Lille avec `lynx` (navigateur en mode texte).
+1. Récupère les données météo de Lille avec `lynx` (navigateur en mode texte).
 2. Extrait les valeurs utiles (températures, humidité, vent, etc.) avec `grep` et `sed`.
 3. Construit un payload JSON pour Discord à l'aide de `python3`.
 4. Envoie le tout au webhook Discord avec `curl`.
@@ -43,10 +44,10 @@ L'URL du webhook est lue depuis la variable d'environnement `DISCORD_WEBHOOK`.
 
 ### [`install.sh`](install.sh)
 
-Le script d'installation. Il :
+Le script d'installation:
 
 1. Copie `script.sh` dans `/usr/local/bin/discord-dheliat/` (avec `sudo` si nécessaire).
-2. Ajoute une ligne dans la **crontab** de l'utilisateur pour exécuter le script chaque jour à 7h00.
+2. Ajoute une ligne dans le **crontab** de l'utilisateur pour exécuter le script chaque jour à 7h00.
 3. Redirige les logs d'exécution vers `/tmp/meteo.log` pour faciliter le débogage.
 
 ## Installation
@@ -76,7 +77,7 @@ DISCORD_WEBHOOK='https://discord.com/api/webhooks/...' ./script.sh
 - `curl`
 - `python3`
 - `iconv`
-- `cron` (pour la planification automatique)
+- `cron`
 
 ## Licence
 
